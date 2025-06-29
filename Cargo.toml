@@ -2,11 +2,11 @@
 name = "async-hierarchical-fsm"
 version = "0.1.0"
 edition = "2021"
-authors = ["Your Name <your.email@example.com>"]
+authors = ["wormbks <your.email@example.com>"]
 license = "MIT OR Apache-2.0"
 description = "A powerful async hierarchical finite state machine with timeout support and PlantUML export"
-homepage = "https://github.com/yourusername/async-hierarchical-fsm"
-repository = "https://github.com/yourusername/async-hierarchical-fsm"
+homepage = "https://github.com/wormbks/async-hierarchical-fsm"
+repository = "https://github.com/wormbks/async-hierarchical-fsm"
 documentation = "https://docs.rs/async-hierarchical-fsm"
 readme = "README.md"
 keywords = ["async", "state-machine", "fsm", "hierarchical", "tokio"]
