@@ -24,4 +24,7 @@ pub enum Error<S: Debug> {
     /// Attempted to use a state that wasn't registered with the builder
     #[error("State {0:?} not registered")]
     StateNotRegistered(S),
-}
+
+ /// On_enter method can't return Super
+    #[error("State {0:?} on_enter cannot return Super")]
+    OnEnterSuper(S),}

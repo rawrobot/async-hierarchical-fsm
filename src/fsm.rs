@@ -242,18 +242,7 @@ where
                 }
                 Response::Error(e) => return Err(Error::StateInvalid(current_target, e)),
                 Response::Super => {
-                    if let Some(super_s) = (self.superstate_fn)(&current_target) {
-                        current_target = super_s;
-                        // Continue the loop with the superstate
-                    } else {
-                        // If no superstate, go to initial state
-                        if let Some(initial) = &self.initial_state {
-                            current_target = initial.clone();
-                            // Continue the loop with the initial state
-                        } else {
-                            return Err(Error::StateMachineNotInitialized);
-                        }
-                    }
+                    return Err(Error::OnEnterSuper(current_target.clone()));
                 }
             }
         }
