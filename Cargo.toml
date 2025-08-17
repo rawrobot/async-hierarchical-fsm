@@ -1,7 +1,7 @@
 [package]
 name = "async-hierarchical-fsm"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = ["Raw Robot"]
 license = "MIT OR Apache-2.0"
 description = "A powerful async hierarchical finite state machine with timeout support and PlantUML export"
@@ -26,6 +26,7 @@ thiserror = "2.0.0"
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
 tokio-test = "0.4"
+crossterm = "0.27"
 
 [features]
 tokio-integration = ["tokio"]

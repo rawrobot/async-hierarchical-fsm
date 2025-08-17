@@ -1,3 +1,4 @@
+use crate::FsmError;
 /// A generic asynchronous finite state machine (FSM) framework supporting hierarchical states,
 /// event-driven transitions.
 ///
@@ -32,13 +33,11 @@
 /// - [`Response`]: Enum for state handler responses.
 /// - [`Error`]: Error type for the state machine.
 use async_trait::async_trait;
-use crate::FsmError;
-use std::{collections::HashMap, fmt::Debug, hash::Hash};
 use std::time::Duration;
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 // Type alias for the complex superstate function type - make it public
 pub type SuperstateFn<S> = Box<dyn Fn(&S) -> Option<S> + Send + Sync>;
-
 
 #[async_trait]
 /// Trait for stateful components in the state machine.
@@ -106,7 +105,6 @@ where
     context: CTX,
     superstate_fn: SuperstateFn<S>,
     initial_state: Option<S>,
-
     // Transition log - only one record per unique state-to-state transition
     // Key: (from_state, to_state), Value: TransitionRecord
 }
@@ -129,7 +127,6 @@ where
             context,
             superstate_fn: superstate_fn.unwrap_or_else(|| Box::new(|_| None)),
             initial_state: None,
-
             // Initialize the transition log
         }
     }
@@ -150,13 +147,11 @@ where
         None
     }
 
-    
     /// Transition to a new state
     async fn transition_to(&mut self, target: S) -> Result<(), FsmError<S>> {
         let mut current_target = target;
 
         loop {
-
             // Exit current state if it exists
             if let Some(current) = &self.current_state {
                 if let Some(s) = self.states.get_mut(current) {
@@ -205,8 +200,6 @@ where
                 return Err(FsmError::StateNotRegistered(current_state.clone()));
             };
 
-            
-
             match handler.on_event(event, &mut self.context).await {
                 Response::Handled => return Ok(()),
                 Response::Transition(new_state) => {
@@ -248,8 +241,6 @@ where
     pub fn context_mut(&mut self) -> &mut CTX {
         &mut self.context
     }
-
-    
 }
 
 #[cfg(test)]
@@ -722,7 +713,6 @@ mod tests {
         assert_eq!(fsm.context().exits, vec!["Root", "Menu", "Root"]);
     }
 
-
     #[tokio::test]
     async fn test_unique_transitions_only() {
         let mut fsm = create_test_fsm();
@@ -733,7 +723,6 @@ mod tests {
         fsm.process_event(&TestEvent::Back).await.unwrap(); // Menu -> Root
         fsm.process_event(&TestEvent::Enter).await.unwrap(); // Root -> Menu (again)
         fsm.process_event(&TestEvent::Back).await.unwrap(); // Menu -> Root (again)
-
     }
 
     // Test concurrent access (if the FSM needs to be thread-safe)

@@ -1,6 +1,5 @@
 use async_hierarchical_fsm::{
-    StateMachine, StateMachineBuilder, Stateful, Response, 
-    async_trait, Duration
+    Duration, Response, StateMachine, StateMachineBuilder, Stateful, async_trait,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -25,7 +24,6 @@ enum DeviceEvent {
 struct DeviceContext {
     power_level: u8,
     error_count: u32,
-    uptime: Duration,
 }
 
 impl DeviceContext {
@@ -33,7 +31,6 @@ impl DeviceContext {
         Self {
             power_level: 0,
             error_count: 0,
-            uptime: Duration::from_secs(0),
         }
     }
 }
@@ -343,7 +340,7 @@ async fn test_concurrent_operations() {
 #[tokio::test]
 async fn test_event_driven_architecture() {
     use tokio::sync::mpsc;
-    use tokio::time::{sleep, timeout};
+    use tokio::time::timeout;
 
     let mut device = create_device_fsm();
     device.init(DeviceState::Off).await.unwrap();
@@ -393,7 +390,6 @@ async fn test_event_driven_architecture() {
     );
 }
 
-
 // Stress test
 #[tokio::test]
 async fn test_stress() {
@@ -424,4 +420,3 @@ async fn test_stress() {
     assert!(device.current_state().is_some());
     let _ = device.get_current_timeout().await;
 }
-

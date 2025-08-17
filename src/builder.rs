@@ -1,7 +1,7 @@
 //! Builder pattern implementation for state machines
 
-use crate::{StateMachine, Stateful};
 use crate::fsm::SuperstateFn;
+use crate::{StateMachine, Stateful};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;

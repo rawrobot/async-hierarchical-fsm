@@ -304,4 +304,3 @@ at your option.
 
 ---
 
-**[Documentation](https://docs.rs/async-hierarchical-fsm) | [Crates.io](https://crates.io/crates/async-hierarchical-fsm) | [Repository](https://github.com/yourusername/async-hierarchical-fsm)**
