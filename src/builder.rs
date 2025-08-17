@@ -1,27 +1,28 @@
 //! Builder pattern implementation for state machines
 
 use crate::{StateMachine, Stateful};
+use crate::fsm::SuperstateFn;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
 /// Builder for constructing state machines
-pub struct StateMachineBuilder<S, CTX, E> 
+pub struct StateMachineBuilder<S, CTX, E>
 where
-    S: Clone + Debug + Eq + Hash + Send + Sync + 'static,
-    CTX: Send + Sync + 'static,
-    E: Send + Sync + Debug +'static,
+    S: Hash + Eq + Clone + Send + Debug + 'static,
+    E: Debug + Send + 'static,
+    CTX: Send + 'static,
 {
     context: CTX,
     states: HashMap<S, Box<dyn Stateful<S, CTX, E> + Send + Sync>>,
-    superstate_fn: Option<Box<dyn Fn(&S) -> Option<S> + Send + Sync>>,
+    superstate_fn: Option<SuperstateFn<S>>,
 }
 
 impl<S, CTX, E> StateMachineBuilder<S, CTX, E>
 where
-    S: Clone + Debug + Eq + Hash + Send + Sync + 'static,
-    CTX: Send + Sync + 'static,
-    E: Send + Sync + Debug + 'static,
+    S: Hash + Eq + Clone + Send + Debug + 'static,
+    E: Debug + Send + 'static,
+    CTX: Send + 'static,
 {
     /// Create a new builder with the given context
     pub fn new(context: CTX) -> Self {

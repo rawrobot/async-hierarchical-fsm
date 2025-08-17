@@ -1,5 +1,5 @@
 /// A generic asynchronous finite state machine (FSM) framework supporting hierarchical states,
-/// event-driven transitions, and optional PlantUML diagram export for visualization.
+/// event-driven transitions.
 ///
 /// # Type Parameters
 /// - `S`: State identifier type. Must implement `Hash`, `Eq`, `Clone`, `Send`, and `Debug`.
@@ -9,7 +9,6 @@
 /// # Features
 /// - Asynchronous state transitions and event handling via the [`Stateful`] trait.
 /// - Hierarchical (superstate) support via a user-provided function.
-/// - Optional transition logging and PlantUML export (enabled with the `plantuml` feature in debug builds).
 /// - Per-state timeout support via [`Stateful::get_timeout`].
 ///
 /// # Usage
@@ -24,9 +23,6 @@
 /// // See crate-level documentation for a full example.
 /// ```
 ///
-/// # PlantUML Export
-/// If the `plantuml` feature is enabled and in debug builds, transitions and hierarchy
-/// are logged and can be exported as a PlantUML diagram via [`StateMachine::export_plantuml`].
 ///
 /// # Errors
 /// Most methods return [`Error<S>`] on failure, such as unregistered states or invalid events.
@@ -36,27 +32,13 @@
 /// - [`Response`]: Enum for state handler responses.
 /// - [`Error`]: Error type for the state machine.
 use async_trait::async_trait;
-use std::time::Duration;
+use crate::FsmError;
 use std::{collections::HashMap, fmt::Debug, hash::Hash};
+use std::time::Duration;
 
-use crate::Error;
+// Type alias for the complex superstate function type - make it public
+pub type SuperstateFn<S> = Box<dyn Fn(&S) -> Option<S> + Send + Sync>;
 
-// Conditional imports for PlantUML logging - only compiled with plantuml feature in debug builds
-
-#[cfg(all(feature = "plantuml", debug_assertions))]
-use std::collections::HashSet;
-#[cfg(all(feature = "plantuml", debug_assertions))]
-use std::time::SystemTime;
-
-// Transition log entry type - only compiled with plantuml feature in debug
-#[cfg(all(feature = "plantuml", debug_assertions))]
-#[derive(Debug, Clone)]
-pub struct TransitionRecord<S> {
-    pub from: S,
-    pub to: S,
-    pub trigger: String,
-    pub timestamp: SystemTime,
-}
 
 #[async_trait]
 /// Trait for stateful components in the state machine.
@@ -94,6 +76,7 @@ pub trait Stateful<S: Hash + Eq + Clone, CTX, E: Debug>: Send + Sync {
     /// # Returns
     /// An [`Option<Duration>`] specifying the timeout, or `None` for no timeout.
     async fn get_timeout(&self, context: &CTX) -> Option<Duration> {
+        let _ = context; // Placeholder for the actual implementation
         None
     }
 }
@@ -121,13 +104,11 @@ where
     states: HashMap<S, Box<dyn Stateful<S, CTX, E> + Send + Sync>>,
     current_state: Option<S>,
     context: CTX,
-    superstate_fn: Box<dyn Fn(&S) -> Option<S> + Send + Sync>,
+    superstate_fn: SuperstateFn<S>,
     initial_state: Option<S>,
 
     // Transition log - only one record per unique state-to-state transition
     // Key: (from_state, to_state), Value: TransitionRecord
-    #[cfg(all(feature = "plantuml", debug_assertions))]
-    transition_log: HashMap<(S, S), TransitionRecord<S>>,
 }
 
 impl<S, CTX, E> StateMachine<S, CTX, E>
@@ -140,7 +121,7 @@ where
     pub fn new(
         context: CTX,
         states: HashMap<S, Box<dyn Stateful<S, CTX, E> + Send + Sync>>,
-        superstate_fn: Option<Box<dyn Fn(&S) -> Option<S> + Send + Sync>>,
+        superstate_fn: Option<SuperstateFn<S>>,
     ) -> Self {
         Self {
             states,
@@ -150,13 +131,11 @@ where
             initial_state: None,
 
             // Initialize the transition log
-            #[cfg(all(feature = "plantuml", debug_assertions))]
-            transition_log: HashMap::new(),
         }
     }
 
     /// Initialize the state machine with an initial state
-    pub async fn init(&mut self, state: S) -> Result<(), Error<S>> {
+    pub async fn init(&mut self, state: S) -> Result<(), FsmError<S>> {
         self.initial_state = Some(state.clone());
         self.transition_to(state).await
     }
@@ -171,30 +150,12 @@ where
         None
     }
 
-    // Log a transition (only in debug builds with plantuml feature)
-    #[cfg(all(feature = "plantuml", debug_assertions))]
-    fn log_transition(&mut self, from: S, to: S, trigger: String) {
-        let key = (from.clone(), to.clone());
-        let record = TransitionRecord {
-            from,
-            to,
-            trigger,
-            timestamp: SystemTime::now(),
-        };
-        self.transition_log.insert(key, record);
-    }
-
-    #[cfg(not(all(feature = "plantuml", debug_assertions)))]
-    fn log_transition(&mut self, _from: S, _to: S, _trigger: String) {
-        // No-op when plantuml feature is disabled or in release builds
-    }
-
+    
     /// Transition to a new state
-    async fn transition_to(&mut self, target: S) -> Result<(), Error<S>> {
+    async fn transition_to(&mut self, target: S) -> Result<(), FsmError<S>> {
         let mut current_target = target;
 
         loop {
-            let previous_state = self.current_state.clone();
 
             // Exit current state if it exists
             if let Some(current) = &self.current_state {
@@ -210,57 +171,41 @@ where
             let s = if let Some(state) = self.states.get_mut(&current_target) {
                 state
             } else {
-                return Err(Error::StateNotRegistered(current_target.clone()));
+                return Err(FsmError::StateNotRegistered(current_target.clone()));
             };
 
             // Handle the on_enter response
             match s.on_enter(&mut self.context).await {
                 Response::Handled => {
-                    // Log the transition AFTER successful state change
-                    if let Some(prev) = previous_state {
-                        self.log_transition(prev, current_target.clone(), "transition".into());
-                    }
                     return Ok(());
                 }
                 Response::Transition(new_state) => {
-                    // Log the current transition first
-                    if let Some(prev) = &previous_state {
-                        self.log_transition(
-                            prev.clone(),
-                            current_target.clone(),
-                            "transition".into(),
-                        );
-                    }
-                    // Then log the on_enter transition
-                    self.log_transition(
-                        current_target.clone(),
-                        new_state.clone(),
-                        "on_enter->transition".into(),
-                    );
                     current_target = new_state;
                     // Continue the loop with the new target
                 }
-                Response::Error(e) => return Err(Error::StateInvalid(current_target, e)),
+                Response::Error(e) => return Err(FsmError::StateInvalid(current_target, e)),
                 Response::Super => {
-                    return Err(Error::OnEnterSuper(current_target.clone()));
+                    return Err(FsmError::OnEnterSuper(current_target.clone()));
                 }
             }
         }
     }
 
     /// Process an event
-    pub async fn process_event(&mut self, event: &E) -> Result<(), Error<S>> {
+    pub async fn process_event(&mut self, event: &E) -> Result<(), FsmError<S>> {
         let mut current_state = self
             .current_state
             .clone()
-            .ok_or(Error::StateMachineNotInitialized)?;
+            .ok_or(FsmError::StateMachineNotInitialized)?;
 
         loop {
             let handler = if let Some(state_handler) = self.states.get_mut(&current_state) {
                 state_handler
             } else {
-                return Err(Error::StateNotRegistered(current_state.clone()));
+                return Err(FsmError::StateNotRegistered(current_state.clone()));
             };
+
+            
 
             match handler.on_event(event, &mut self.context).await {
                 Response::Handled => return Ok(()),
@@ -271,25 +216,19 @@ where
                 Response::Super => {
                     // Try to find superstate and delegate the event to it
                     if let Some(super_s) = (self.superstate_fn)(&current_state) {
-                        // Log the superstate delegation
-                        self.log_transition(
-                            current_state.clone(),
-                            super_s.clone(),
-                            format!("delegate_to_super:{:?}", event),
-                        );
                         current_state = super_s;
                         // Continue the loop to process the same event in the superstate
                     } else {
                         // If no superstate, the event is unhandled
-                        return Err(Error::InvalidEvent(
+                        return Err(FsmError::InvalidEvent(
                             current_state,
-                            format!("Unhandled event, no superstate available"),
+                            "Unhandled event, no superstate available".to_string(),
                         ));
                     }
                 }
 
                 Response::Error(e) => {
-                    return Err(Error::InvalidEvent(current_state, e));
+                    return Err(FsmError::InvalidEvent(current_state, e));
                 }
             }
         }
@@ -310,54 +249,7 @@ where
         &mut self.context
     }
 
-    // Export PlantUML diagram - only available with plantuml feature in debug builds
-    #[cfg(all(feature = "plantuml", debug_assertions))]
-    pub fn export_plantuml(&self) -> String
-    where
-        S: Debug,
-    {
-        let mut out = String::from(
-            "@startuml\nskinparam state {\n  BackgroundColor<<Current>> YellowGreen\n}\n",
-        );
-
-        // Add hierarchy relationships
-        let mut seen_states = HashSet::new();
-        for state in self.states.keys() {
-            if let Some(parent) = (self.superstate_fn)(state) {
-                out += &format!("{:?} -up-> {:?} : parent\n", state, parent);
-                seen_states.insert(state.clone());
-                seen_states.insert(parent);
-            }
-        }
-
-        // Add transitions from the log (only unique transitions)
-        for ((from, to), record) in &self.transition_log {
-            out += &format!("{:?} --> {:?} : {}\n", from, to, record.trigger);
-            seen_states.insert(from.clone());
-            seen_states.insert(to.clone());
-        }
-
-        // Add remaining states
-        for s in self.states.keys() {
-            if !seen_states.contains(s) {
-                out += &format!("state {:?}\n", s);
-            }
-        }
-
-        // Mark current state
-        if let Some(current) = &self.current_state {
-            out += &format!("state {:?} <<Current>>\n", current);
-        }
-
-        out += "@enduml\n";
-        out
-    }
-
-    /// Stub for export_plantuml when feature is disabled
-    #[cfg(not(all(feature = "plantuml", debug_assertions)))]
-    pub fn export_plantuml(&self) -> String {
-        String::from("PlantUML export not available (requires 'plantuml' feature and debug build)")
-    }
+    
 }
 
 #[cfg(test)]
@@ -662,7 +554,7 @@ mod tests {
 
         // Should get an error because Root doesn't handle Timeout either
         assert!(result.is_err());
-        if let Err(Error::InvalidEvent(state, msg)) = result {
+        if let Err(FsmError::InvalidEvent(state, msg)) = result {
             assert_eq!(state, TestState::Root);
             assert!(msg.contains("Root: Unhandled event"));
         }
@@ -738,7 +630,7 @@ mod tests {
 
         // Test processing event without initialization
         let result = fsm.process_event(&TestEvent::Enter).await;
-        assert!(matches!(result, Err(Error::StateMachineNotInitialized)));
+        assert!(matches!(result, Err(FsmError::StateMachineNotInitialized)));
 
         // Initialize and test invalid state
         fsm.init(TestState::Root).await.unwrap();
@@ -765,6 +657,7 @@ mod tests {
         assert_eq!(fsm.context().value, 100);
     }
 
+    #[tokio::test]
     async fn test_builder_pattern() {
         let context = TestContext::new();
 
@@ -829,46 +722,6 @@ mod tests {
         assert_eq!(fsm.context().exits, vec!["Root", "Menu", "Root"]);
     }
 
-    // Test PlantUML generation (only when feature is enabled)
-    #[cfg(all(feature = "plantuml", debug_assertions))]
-    #[tokio::test]
-    async fn test_plantuml_generation() {
-        let mut fsm = create_test_fsm();
-        fsm.init(TestState::Root).await.unwrap();
-
-        // Perform some transitions to populate the log
-        fsm.process_event(&TestEvent::Enter).await.unwrap(); // Root -> Menu
-        fsm.process_event(&TestEvent::Select).await.unwrap(); // Menu -> Settings
-        fsm.process_event(&TestEvent::Back).await.unwrap(); // Settings -> Menu
-
-        let plantuml = fsm.export_plantuml();
-
-        // Check that PlantUML contains expected elements
-        assert!(plantuml.contains("@startuml"));
-        assert!(plantuml.contains("@enduml"));
-        assert!(plantuml.contains("Root --> Menu"));
-        assert!(plantuml.contains("Menu --> Settings"));
-        assert!(plantuml.contains("Settings --> Menu"));
-
-        // Check hierarchy relationships
-        assert!(plantuml.contains("Menu -up-> Root : parent"));
-        assert!(plantuml.contains("Settings -up-> Root : parent"));
-
-        // Check current state marking
-        assert!(plantuml.contains("Menu <<Current>>"));
-
-        println!("Generated PlantUML:\n{}", plantuml);
-    }
-
-    #[cfg(not(all(feature = "plantuml", debug_assertions)))]
-    #[tokio::test]
-    async fn test_plantuml_disabled() {
-        let mut fsm = create_test_fsm();
-        fsm.init(TestState::Root).await.unwrap();
-
-        let plantuml = fsm.export_plantuml();
-        assert!(plantuml.contains("PlantUML export not available"));
-    }
 
     #[tokio::test]
     async fn test_unique_transitions_only() {
@@ -881,23 +734,6 @@ mod tests {
         fsm.process_event(&TestEvent::Enter).await.unwrap(); // Root -> Menu (again)
         fsm.process_event(&TestEvent::Back).await.unwrap(); // Menu -> Root (again)
 
-        #[cfg(all(feature = "plantuml", debug_assertions))]
-        {
-            let plantuml = fsm.export_plantuml();
-
-            // Should only contain each unique transition once
-            let root_to_menu_count = plantuml.matches("Root --> Menu").count();
-            let menu_to_root_count = plantuml.matches("Menu --> Root").count();
-
-            assert_eq!(
-                root_to_menu_count, 1,
-                "Root -> Menu should appear only once"
-            );
-            assert_eq!(
-                menu_to_root_count, 1,
-                "Menu -> Root should appear only once"
-            );
-        }
     }
 
     // Test concurrent access (if the FSM needs to be thread-safe)
@@ -925,7 +761,7 @@ mod tests {
         let result = fsm.process_event(&TestEvent::Timeout).await;
 
         match result {
-            Err(Error::InvalidEvent(state, msg)) => {
+            Err(FsmError::InvalidEvent(state, msg)) => {
                 assert_eq!(state, TestState::Root);
                 assert!(msg.contains("Root: Unhandled event"));
             }
@@ -1057,7 +893,7 @@ mod tests {
         let result = fsm.init(TestState::Root).await;
         assert!(result.is_err());
 
-        if let Err(Error::StateInvalid(state, msg)) = result {
+        if let Err(FsmError::StateInvalid(state, msg)) = result {
             assert_eq!(state, TestState::Root);
             assert!(msg.contains("ErrorState always fails on enter"));
         }

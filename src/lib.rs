@@ -1,21 +1,20 @@
 //! # Async Hierarchical State Machine
 //!
 //! A powerful, async-first hierarchical finite state machine implementation in Rust 
-//! with support for timeouts, context management, and PlantUML diagram generation.
+//! with support for timeouts and context management.
 //!
 //! ## Features
 //!
 //! - 🔄 **Async/Await Support**: Built from the ground up for async operations
 //! - 🏗️ **Hierarchical States**: Support for superstate delegation and state hierarchies
 //! - ⏰ **Dynamic Timeouts**: Context-aware timeout management per state
-//! - 📊 **PlantUML Export**: Automatic state diagram generation (debug builds only)
 //! - 🛡️ **Type Safety**: Leverages Rust's type system for compile-time guarantees
 //! - 🧵 **Thread Safe**: Designed for concurrent environments
 //!
 //! ## Quick Start
 //!
 //! ```rust
-//! use async_hierarchical_fsm::*;
+//! use async_hierarchical_fsm::prelude::*;
 //! use async_trait::async_trait;
 //! 
 //! #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -45,14 +44,13 @@
 //!     async fn on_exit(&mut self, _context: &mut Context) {}
 //! }
 //! 
-//! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+//! # async fn example() -> FsmResult<(), State> {
 //! let mut fsm = StateMachineBuilder::new(Context { power_level: 0 })
 //!     .state(State::Off, OffState)
 //!     .build();
 //! 
 //! fsm.init(State::Off).await?;
-//! fsm.process_event(&Event::PowerOn).await?;
-//! # Ok(())
+//! fsm.process_event(&Event::PowerOn).await
 //! # }
 //! ```
 
@@ -66,26 +64,52 @@ mod error;
 mod builder;
 mod fsm;
 
-#[cfg(all(feature = "plantuml", debug_assertions))]
-mod plantuml;
-
-pub use error::{Error, Result};
+pub use error::{FsmError, FsmResult};
 pub use builder::StateMachineBuilder;
 pub use fsm::{StateMachine, Stateful, Response};
+pub use std::time::Duration;
 
-// Include your original fsm.rs content here exactly as you had it
-// I won't regenerate it since you want to keep your working version
 
 #[cfg(feature = "tokio-integration")]
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-integration")))]
-pub use tokio::time::Duration;
+/// Tokio-specific timeout utilities
+pub mod tokio_utils {
+    use std::time::Duration;
+    use tokio::time::timeout;
+    use crate::{StateMachine, FsmResult, FsmError};
+    use std::fmt::Debug;
+    use std::hash::Hash;
+
+    /// Process an event with a timeout
+    pub async fn process_event_with_timeout<S, CTX, E>(
+        fsm: &mut StateMachine<S, CTX, E>,
+        event: &E,
+        timeout_duration: Duration,
+    ) -> FsmResult<(), S>
+    where
+        S: Hash + Eq + Clone + Send + Debug + 'static,
+        E: Debug + Send + 'static,
+        CTX: Send + 'static,
+    {
+        match timeout(timeout_duration, fsm.process_event(event)).await {
+            Ok(result) => result,
+            Err(e) => Err(FsmError::Custom(e.to_string())),
+        }
+    }
+}
 
 #[cfg(not(feature = "tokio-integration"))]
-pub use std::time::Duration;
+/// Stub module when tokio-integration is not enabled
+pub mod tokio_utils {
+    //! Tokio utilities are not available without the `tokio-integration` feature
+}
 
 pub mod prelude {
     //! Prelude module for convenient imports
-    pub use crate::{StateMachine, StateMachineBuilder, Stateful, Response, Error, Result};
+    pub use crate::{StateMachine, StateMachineBuilder, Stateful, Response, FsmError, FsmResult};
     pub use async_trait::async_trait;
     pub use std::time::Duration;
+    
+    #[cfg(feature = "tokio-integration")]
+    pub use crate::tokio_utils::*;
 }

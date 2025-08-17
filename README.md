@@ -1,14 +1,13 @@
 # Async Hierarchical State Machine
 
 
-A powerful, async-first hierarchical finite state machine implementation in Rust with support for timeouts, context management, and PlantUML diagram generation.
+A powerful, async-first hierarchical finite state machine implementation in Rust with support for timeouts and context management.
 
 ## ✨ Features
 
 - 🔄 **Async/Await Support**: Built from the ground up for async operations
 - 🏗️ **Hierarchical States**: Support for superstate delegation and state hierarchies
 - ⏰ **Dynamic Timeouts**: Context-aware timeout management per state
-- 📊 **PlantUML Export**: Automatic state diagram generation (debug builds only)
 - 🛡️ **Type Safety**: Leverages Rust's type system for compile-time guarantees
 - 🧵 **Thread Safe**: Designed for concurrent environments
 - 🎯 **Zero-Cost Abstractions**: Minimal runtime overhead
@@ -177,33 +176,6 @@ if let Some(timeout) = fsm.get_current_timeout().await {
 }
 ```
 
-## 📊 PlantUML Diagrams
-
-Generate state diagrams automatically (debug builds with `plantuml` feature):
-
-```rust
-// Enable in Cargo.toml
-[features]
-plantuml = []
-
-// In your code (debug builds only)
-println!("{}", fsm.export_plantuml());
-```
-
-Output:
-```plantuml
-@startuml
-skinparam state {
-  BackgroundColor<<Current>> YellowGreen
-}
-
-Off --> On
-On --> Off
-state On <<Current>>
-@enduml
-```
-
-## 🎯 Advanced Features
 
 ### Context Management
 

@@ -2,12 +2,12 @@
 name = "async-hierarchical-fsm"
 version = "0.1.0"
 edition = "2021"
-authors = ["wormbks <your.email@example.com>"]
+authors = ["Raw Robot"]
 license = "MIT OR Apache-2.0"
 description = "A powerful async hierarchical finite state machine with timeout support and PlantUML export"
-homepage = "https://github.com/wormbks/async-hierarchical-fsm"
-repository = "https://github.com/wormbks/async-hierarchical-fsm"
-documentation = "https://docs.rs/async-hierarchical-fsm"
+homepage = "https://github.com/rawrobot/async-hierarchical-fsm"
+repository = "https://github.com/rawrobot/async-hierarchical-fsm"
+#documentation = "https://docs.rs/async-hierarchical-fsm"
 readme = "README.md"
 keywords = ["async", "state-machine", "fsm", "hierarchical", "tokio"]
 categories = ["asynchronous", "data-structures", "development-tools"]
@@ -28,17 +28,15 @@ tokio = { version = "1.0", features = ["full"] }
 tokio-test = "0.4"
 
 [features]
-default = []
-plantuml = []
 tokio-integration = ["tokio"]
 
 [[example]]
 name = "basic_device"
-required-features = ["plantuml", "tokio-integration"]
+required-features = [ "tokio-integration"]
 
 [[example]]
 name = "hierarchical_ui"
-required-features = ["plantuml", "tokio-integration"]
+required-features = [ "tokio-integration"]
 
 [package.metadata.docs.rs]
 all-features = true

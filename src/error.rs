@@ -4,11 +4,11 @@ use std::fmt::Debug;
 use thiserror::Error;
 
 /// Result type alias for state machine operations
-pub type Result<T, S> = std::result::Result<T, Error<S>>;
+pub type FsmResult<T, S> = std::result::Result<T, FsmError<S>>;
 
 /// Errors that can occur during state machine operations
 #[derive(Error, Debug)]
-pub enum Error<S: Debug> {
+pub enum FsmError<S: Debug> {
     /// State machine has not been initialized
     #[error("State machine not initialized")]
     StateMachineNotInitialized,
@@ -25,6 +25,11 @@ pub enum Error<S: Debug> {
     #[error("State {0:?} not registered")]
     StateNotRegistered(S),
 
- /// On_enter method can't return Super
+ /// `On_enter` method can't return Super
     #[error("State {0:?} on_enter cannot return Super")]
-    OnEnterSuper(S),}
+    OnEnterSuper(S),
+
+    /// Generic error type for custom errors
+    #[error("Custom error: {0}")]
+    Custom(String),
+   }

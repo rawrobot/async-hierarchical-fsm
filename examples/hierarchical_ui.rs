@@ -112,7 +112,7 @@ impl Stateful<UIState, UIContext, UIEvent> for MenuState {
 // ... rest of the states
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> FsmResult<(), Box<dyn std::error::Error>> {
     println!("📱 Hierarchical UI State Machine Example\n");
 
     let mut ui = StateMachineBuilder::new(UIContext::new())
