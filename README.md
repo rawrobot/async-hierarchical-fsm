@@ -220,12 +220,11 @@ async fn on_event(&mut self, event: &Event, context: &mut Context) -> Response<S
 ## 📦 Feature Flags
 
 - `default`: No additional features
-- `plantuml`: Enable PlantUML diagram generation (debug builds only)
 - `tokio-integration`: Enable Tokio-specific timeout utilities
 
 ```toml
 [dependencies]
-async-hierarchical-fsm = { version = "0.1", features = ["plantuml", "tokio-integration"] }
+async-hierarchical-fsm = { version = "0.1", features = ["tokio-integration"] }
 ```
 
 ## 🔧 Examples
@@ -239,7 +238,7 @@ The repository includes several comprehensive examples:
 Run examples:
 
 ```bash
-cargo run --example basic_device --features "plantuml,tokio-integration"
+cargo run --example basic_device --features "tokio-integration"
 cargo run --example hierarchical_ui --all-features
 ```
 
@@ -254,7 +253,6 @@ cargo tarpaulin --all-features
 
 # Test specific features
 cargo test --no-default-features
-cargo test --features plantuml
 ```
 
 ## 🚀 Performance

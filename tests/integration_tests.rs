@@ -393,36 +393,6 @@ async fn test_event_driven_architecture() {
     );
 }
 
-#[cfg(all(feature = "plantuml", debug_assertions))]
-#[tokio::test]
-async fn test_plantuml_integration() {
-    let mut device = create_device_fsm();
-    device.init(DeviceState::Off).await.unwrap();
-
-    // Exercise all transitions
-    device.process_event(&DeviceEvent::PowerOn).await.unwrap(); // Off -> Standby
-    device.process_event(&DeviceEvent::Activate).await.unwrap(); // Standby -> Active
-    device
-        .process_event(&DeviceEvent::ErrorOccurred)
-        .await
-        .unwrap(); // Active -> Error
-    device.process_event(&DeviceEvent::Reset).await.unwrap(); // Error -> Standby
-    device.process_event(&DeviceEvent::PowerOff).await.unwrap(); // Standby -> Off
-
-    let plantuml = device.export_plantuml();
-
-    // Verify PlantUML contains all expected transitions
-    assert!(plantuml.contains("Off --> Standby"));
-    assert!(plantuml.contains("Standby --> Active"));
-    assert!(plantuml.contains("Active --> Error"));
-    assert!(plantuml.contains("Error --> Standby"));
-    assert!(plantuml.contains("Standby --> Off"));
-
-    // Should mark current state
-    assert!(plantuml.contains("Off <<Current>>"));
-
-    println!("Device FSM PlantUML:\n{}", plantuml);
-}
 
 // Stress test
 #[tokio::test]
@@ -455,25 +425,3 @@ async fn test_stress() {
     let _ = device.get_current_timeout().await;
 }
 
-// Test memory usage doesn't grow unbounded
-#[cfg(all(feature = "plantuml", debug_assertions))]
-#[tokio::test]
-async fn test_transition_log_uniqueness() {
-    let mut device = create_device_fsm();
-    device.init(DeviceState::Off).await.unwrap();
-
-    // Repeat the same transitions many times
-    for _ in 0..100 {
-        let _ = device.process_event(&DeviceEvent::PowerOn).await;
-        let _ = device.process_event(&DeviceEvent::PowerOff).await;
-    }
-
-    let plantuml = device.export_plantuml();
-
-    // Should only contain each transition once, not 100 times
-    let off_to_standby_count = plantuml.matches("Off --> Standby").count();
-    let standby_to_off_count = plantuml.matches("Standby --> Off").count();
-
-    assert_eq!(off_to_standby_count, 1);
-    assert_eq!(standby_to_off_count, 1);
-}
