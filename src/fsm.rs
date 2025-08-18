@@ -139,10 +139,10 @@ where
 
     /// Get timeout for current state
     pub async fn get_current_timeout(&self) -> Option<Duration> {
-        if let Some(current) = &self.current_state {
-            if let Some(state) = self.states.get(current) {
-                return state.get_timeout(&self.context).await;
-            }
+        if let Some(current) = &self.current_state
+            && let Some(state) = self.states.get(current)
+        {
+            return state.get_timeout(&self.context).await;
         }
         None
     }
@@ -153,10 +153,10 @@ where
 
         loop {
             // Exit current state if it exists
-            if let Some(current) = &self.current_state {
-                if let Some(s) = self.states.get_mut(current) {
-                    s.on_exit(&mut self.context).await;
-                }
+            if let Some(current) = &self.current_state
+                && let Some(s) = self.states.get_mut(current)
+            {
+                s.on_exit(&mut self.context).await;
             }
 
             // Update current state BEFORE entering new state

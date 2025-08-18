@@ -15,7 +15,7 @@
 //! Run with: cargo run --example hierarchical_ui --features tokio-integration
 
 use async_hierarchical_fsm::prelude::*;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum UIState {
@@ -160,19 +160,17 @@ impl Stateful<UIState, UIContext, UIEvent> for SettingsState {
                 }
                 Response::Handled
             }
-            UIEvent::Enter | UIEvent::Select => {
-                match context.menu_index {
-                    0 => {
-                        println!("🖥️  Opening display settings...");
-                        Response::Transition(UIState::Display)
-                    }
-                    1 => {
-                        println!("🔊 Opening audio settings...");
-                        Response::Transition(UIState::Audio)
-                    }
-                    _ => Response::Handled,
+            UIEvent::Enter | UIEvent::Select => match context.menu_index {
+                0 => {
+                    println!("🖥️  Opening display settings...");
+                    Response::Transition(UIState::Display)
                 }
-            }
+                1 => {
+                    println!("🔊 Opening audio settings...");
+                    Response::Transition(UIState::Audio)
+                }
+                _ => Response::Handled,
+            },
             UIEvent::Home => Response::Super, // Delegate to parent (Root)
             UIEvent::Quit => Response::Super, // Delegate to parent (Root)
             _ => Response::Handled,
@@ -314,29 +312,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for (event, description) in events {
         println!("📨 {}: {:?}", description, event);
-        
+
         match ui.process_event(&event).await {
             Ok(()) => {
                 println!("✅ Event processed");
                 println!("📍 Current state: {:?}", ui.current_state());
-                println!("🔆 Brightness: {}%, 🔊 Volume: {}%", 
-                    ui.context().brightness, ui.context().volume);
+                println!(
+                    "🔆 Brightness: {}%, 🔊 Volume: {}%",
+                    ui.context().brightness,
+                    ui.context().volume
+                );
             }
             Err(e) => {
                 println!("❌ Error: {:?}", e);
             }
         }
-        
+
         println!(); // Empty line for readability
-        
+
         // Delay for better visualization
         sleep(Duration::from_millis(1500)).await;
     }
 
     println!("🎉 Demo completed!");
     println!("Final state: {:?}", ui.current_state());
-    println!("Final settings - Brightness: {}%, Volume: {}%", 
-        ui.context().brightness, ui.context().volume);
+    println!(
+        "Final settings - Brightness: {}%, Volume: {}%",
+        ui.context().brightness,
+        ui.context().volume
+    );
 
     Ok(())
 }

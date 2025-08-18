@@ -1,191 +1,169 @@
-.PHONY: help build test test-all coverage coverage-open clean fmt clippy clippy-pedantic check examples docs install-deps
+.PHONY: help build test test-coverage clean clippy format check doc package publish install-tools ci pre-commit example bench ci-install test-coverage-lcov publish-ci ci-quick
 
 # Default target
-help:
-	@echo "🚀 Async Hierarchical FSM - Available Commands:"
-	@echo ""
-	@echo "📦 Building:"
-	@echo "  build          - Build the project"
-	@echo "  build-release  - Build in release mode"
-	@echo "  build-all      - Build with all features"
-	@echo ""
-	@echo "🧪 Testing:"
-	@echo "  test           - Run unit tests"
-	@echo "  test-all       - Run all tests with all features"
-	@echo "  test-integration - Run integration tests only"
-	@echo ""
-	@echo "📊 Coverage:"
-	@echo "  coverage       - Generate test coverage report"
-	@echo "  coverage-open  - Generate coverage and open in browser"
-	@echo "  coverage-ci    - Generate coverage for CI (XML output)"
-	@echo ""
-	@echo "🔍 Code Quality:"
-	@echo "  check          - Run cargo check"
-	@echo "  clippy         - Run clippy lints (strict)"
-	@echo "  clippy-pedantic - Run clippy with pedantic lints"
-	@echo "  fmt            - Format code"
-	@echo "  fmt-check      - Check code formatting"
-	@echo ""
-	@echo "📚 Documentation:"
-	@echo "  docs           - Generate documentation"
-	@echo "  docs-open      - Generate docs and open in browser"
-	@echo ""
-	@echo "🎯 Examples:"
-	@echo "  examples       - Run all examples"
-	@echo "  example-basic  - Run basic device example"
-	@echo "  example-ui     - Run hierarchical UI example"
-	@echo ""
-	@echo "🛠️  Utilities:"
-	@echo "  install-deps   - Install required dependencies"
-	@echo "  clean          - Clean build artifacts"
-	@echo "  clean-all      - Clean everything including coverage"
+help:	## Show this help message
+	@echo "Available targets:"
+	@grep -E "^[a-zA-Z_-]+:.*?## .*" $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 # Build targets
-build:
-	@echo "🔨 Building project..."
+build:	## Build the project
 	cargo build
 
-build-release:
-	@echo "🔨 Building project in release mode..."
+build-release:	## Build the project in release mode
 	cargo build --release
 
-build-all:
-	@echo "🔨 Building project with all features..."
-	cargo build --all-features
-
 # Test targets
-test:
-	@echo "🧪 Running unit tests..."
+test:	## Run all tests
 	cargo test
 
-test-all:
-	@echo "🧪 Running all tests with all features..."
-	cargo test --all-features
+test-verbose:	## Run tests with verbose output
+	cargo test -- --nocapture
 
-test-integration:
-	@echo "🧪 Running integration tests..."
-	cargo test --test integration_tests --all-features
+test-coverage:	install-tools	## Generate test coverage report
+	cargo tarpaulin --out Html --output-dir coverage
 
-# Coverage targets
-coverage:
-	@echo "📊 Generating test coverage..."
-	@./ws-coverage.sh
+test-coverage-ci:	install-tools	## Generate test coverage for CI (lcov format)
+	cargo tarpaulin --out Lcov --output-dir coverage
 
-coverage-open: coverage
-	@echo "🌐 Opening coverage report in browser..."
-	@if command -v xdg-open > /dev/null; then \
-		xdg-open coverage/tarpaulin-report.html; \
-	elif command -v open > /dev/null; then \
-		open coverage/tarpaulin-report.html; \
-	else \
-		echo "Please open coverage/tarpaulin-report.html manually"; \
-	fi
-
-coverage-ci:
-	@echo "📊 Generating coverage for CI..."
-	@rm -rf coverage
-	@mkdir -p coverage
-	@if ! command -v cargo-tarpaulin &> /dev/null; then \
-		echo "Installing cargo-tarpaulin..."; \
-		cargo install cargo-tarpaulin; \
-	fi
-	cargo tarpaulin \
-		--workspace \
-		--out Xml \
-		--output-dir coverage \
-		--skip-clean \
-		--timeout 600 \
-		--no-fail-fast
+test-coverage-lcov: install-tools ## Generate test coverage in LCOV format for CI
+	cargo tarpaulin --out Lcov --output-dir coverage
 
 # Code quality targets
-check:
-	@echo "🔍 Running cargo check..."
-	cargo check --all-features
+check:	## Check code without building
+	cargo check
 
-clippy:
-	@echo "🔍 Running clippy (strict)..."
-	cargo clippy --all-features -- -D warnings
+clippy:	## Run clippy linter
+	cargo clippy -- -D warnings
 
-clippy-pedantic:
-	@echo "🔍 Running clippy with pedantic lints..."
-	cargo clippy --all-features -- -W clippy::pedantic
+clippy-fix:	## Run clippy with automatic fixes
+	cargo clippy --fix --allow-dirty --allow-staged
 
-fmt:
-	@echo "🎨 Formatting code..."
+format:	## Format code
 	cargo fmt
 
-fmt-check:
-	@echo "🎨 Checking code formatting..."
+format-check:	## Check if code is formatted
 	cargo fmt -- --check
 
 # Documentation targets
-docs:
-	@echo "📚 Generating documentation..."
-	cargo doc --all-features --no-deps
+doc:	## Generate documentation
+	cargo doc --no-deps
 
-docs-open:
-	@echo "📚 Generating documentation and opening in browser..."
-	cargo doc --all-features --no-deps --open
+doc-open:	## Generate and open documentation
+	cargo doc --no-deps --open
 
-# Example targets
-examples:
-	@echo "🎯 Running all examples..."
-	@echo "Running basic device example..."
-	cargo run --example basic_device --features "plantuml,tokio-integration"
-	@echo ""
-	@echo "Running hierarchical UI example..."
-	cargo run --example hierarchical_ui --all-features
+doc-all:	## Generate documentation with dependencies
+	cargo doc
 
-example-basic:
-	@echo "🎯 Running basic device example..."
-	cargo run --example basic_device --features "plantuml,tokio-integration"
+# Package and publish targets
+package:	## Create a package
+	cargo package
 
-example-ui:
-	@echo "🎯 Running hierarchical UI example..."
-	cargo run --example hierarchical_ui --all-features
+package-list:	## List files that would be included in package
+	cargo package --list
 
-# Utility targets
-install-deps:
-	@echo "🛠️  Installing required dependencies..."
-	@if ! command -v cargo-tarpaulin &> /dev/null; then \
-		echo "Installing cargo-tarpaulin..."; \
-		cargo install cargo-tarpaulin; \
-	fi
-	@if ! command -v jq &> /dev/null; then \
-		echo "⚠️  jq not found. Please install jq for coverage statistics."; \
-		echo "   Ubuntu/Debian: sudo apt-get install jq"; \
-		echo "   macOS: brew install jq"; \
-		echo "   Arch: sudo pacman -S jq"; \
-	fi
-	@if ! command -v bc &> /dev/null; then \
-		echo "⚠️  bc not found. Please install bc for coverage calculations."; \
-		echo "   Ubuntu/Debian: sudo apt-get install bc"; \
-		echo "   macOS: brew install bc"; \
-		echo "   Arch: sudo pacman -S bc"; \
-	fi
+publish-dry-run:	## Dry run of publishing to crates.io
+	cargo publish --dry-run
 
-clean:
-	@echo "🧹 Cleaning build artifacts..."
+publish:	## Publish to crates.io
+	cargo publish
+
+publish-ci: ## Publish to crates.io using CARGO_REGISTRY_TOKEN
+	cargo publish --token ${CARGO_REGISTRY_TOKEN}
+
+# Example and benchmark targets
+example:	## Run the basic usage example
+	cargo run --example basic_usage
+
+example-with-logs:	## Run example with logging enabled
+	RUST_LOG=debug cargo run --example basic_usage
+
+bench:	## Run benchmarks (if any)
+	cargo bench
+
+# Development tools
+install-tools:	## Install development tools
+	cargo install cargo-tarpaulin || true
+	cargo install cargo-audit || true
+	cargo install cargo-outdated || true
+	cargo install cargo-edit || true
+	rustup component add clippy || true
+	rustup component add rustfmt || true
+
+ci-install: install-tools ## Install tools for CI environment
+	@echo "CI tools installed!"
+
+audit:	install-tools	## Audit dependencies for security vulnerabilities
+	cargo audit
+
+outdated:	install-tools	## Check for outdated dependencies
+	cargo outdated
+
+update:	## Update dependencies
+	cargo update
+
+# Cleaning targets
+clean:	## Clean build artifacts
 	cargo clean
 
-clean-all: clean
-	@echo "🧹 Cleaning everything..."
+clean-coverage:	## Clean coverage reports
 	rm -rf coverage/
-	rm -rf target/doc/
+
+clean-all:	clean clean-coverage	## Clean everything
 
 # CI/CD targets
-ci-test: install-deps test-all clippy fmt-check
+ci:	format-check clippy test doc package	## Run all CI checks
+	@echo "All CI checks passed!"
 
-ci-coverage: install-deps coverage-ci
+ci-quick: format-check clippy test doc ## Quick CI checks without coverage
+	@echo "Quick CI checks passed!"
+
+pre-commit:	format clippy test	## Run pre-commit checks
+	@echo "Pre-commit checks passed!"
 
 # Development workflow
-dev-check: fmt clippy-pedantic test
+dev-setup:	install-tools	## Set up development environment
+	@echo "Development environment setup complete!"
+
+quick-check:	format-check clippy check	## Quick development checks
+	@echo "Quick checks passed!"
 
 # Release workflow
-release-check: clean build-release test-all clippy fmt-check docs
+pre-release:	ci test-coverage	## Prepare for release
+	@echo "Pre-release checks complete!"
+	@echo "Ready to tag and release!"
 
-# Quick development cycle
-quick: fmt test
+# Watch targets (requires cargo-watch)
+watch-test:	## Watch for changes and run tests
+	cargo watch -x test
 
-# Full development cycle
-full: clean fmt clippy test-all coverage docs examples
+watch-check:	## Watch for changes and run check
+	cargo watch -x check
+
+install-watch:	## Install cargo-watch
+	cargo install cargo-watch
+
+# Performance targets
+profile:	## Build with profiling enabled
+	cargo build --release --features profiling
+
+size-analysis:	## Analyze binary size
+	cargo build --release
+	ls -la target/release/
+
+# Security and maintenance
+security-check:	audit	## Run security checks
+	@echo "Security check complete!"
+
+maintenance:	outdated audit	## Run maintenance checks
+	@echo "Maintenance check complete!"
+
+# Help with common workflows
+workflow-help:	## Show common development workflows
+	@echo "Common development workflows:"
+	@echo "  1. Initial setup:     make dev-setup"
+	@echo "  2. Before commit:     make pre-commit"
+	@echo "  3. Full CI check:     make ci"
+	@echo "  4. Test with coverage: make test-coverage"
+	@echo "  5. Prepare release:   make pre-release"
+	@echo "  6. Publish:           make publish-dry-run && make publish"
+	@echo "  7. Run example:       make example-with-logs"

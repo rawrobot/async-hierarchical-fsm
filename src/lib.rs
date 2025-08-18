@@ -57,13 +57,12 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 
-pub use async_trait::async_trait;
-
 // Use your original FSM implementation here - don't change it!
 mod builder;
 mod error;
 mod fsm;
 
+pub use async_trait::async_trait;
 pub use builder::StateMachineBuilder;
 pub use error::{FsmError, FsmResult};
 pub use fsm::{Response, StateMachine, Stateful};
@@ -73,42 +72,45 @@ pub use std::time::Duration;
 #[cfg_attr(docsrs, doc(cfg(feature = "tokio-integration")))]
 /// Tokio-specific timeout utilities
 pub mod tokio_utils {
-    use crate::{FsmError, FsmResult, StateMachine};
+    //! Tokio utilities for timeout management and async operations
+
+    use crate::{FsmError, StateMachine};
     use std::fmt::Debug;
     use std::hash::Hash;
-    use std::time::Duration;
-    use tokio::time::timeout;
+    use tokio::time::{Duration, timeout};
 
     /// Process an event with a timeout
     pub async fn process_event_with_timeout<S, CTX, E>(
         fsm: &mut StateMachine<S, CTX, E>,
         event: &E,
         timeout_duration: Duration,
-    ) -> FsmResult<(), S>
+    ) -> Result<(), FsmError<S>>
     where
         S: Hash + Eq + Clone + Send + Debug + 'static,
         E: Debug + Send + 'static,
         CTX: Send + 'static,
     {
-        match timeout(timeout_duration, fsm.process_event(event)).await {
-            Ok(result) => result,
-            Err(e) => Err(FsmError::Custom(e.to_string())),
-        }
+        timeout(timeout_duration, fsm.process_event(event))
+            .await
+            .map_err(|_| FsmError::Timeout)?
     }
 }
 
 #[cfg(not(feature = "tokio-integration"))]
 /// Stub module when tokio-integration is not enabled
 pub mod tokio_utils {
-    //! Tokio utilities are not available without the `tokio-integration` feature
+    // Tokio utilities are not available without the `tokio-integration` feature
 }
 
 pub mod prelude {
     //! Prelude module for convenient imports
-    pub use crate::{FsmError, FsmResult, Response, StateMachine, StateMachineBuilder, Stateful};
-    pub use async_trait::async_trait;
-    pub use std::time::Duration;
+
+    pub use crate::{
+        Duration, FsmError, FsmResult, Response, StateMachine, StateMachineBuilder, Stateful,
+        async_trait,
+    };
 
     #[cfg(feature = "tokio-integration")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tokio-integration")))]
     pub use crate::tokio_utils::*;
 }

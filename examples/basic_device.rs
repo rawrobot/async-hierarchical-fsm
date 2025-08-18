@@ -93,7 +93,10 @@ struct StandbyState;
 impl Stateful<DeviceState, DeviceContext, DeviceEvent> for StandbyState {
     async fn on_enter(&mut self, context: &mut DeviceContext) -> Response<DeviceState> {
         context.power_level = 25;
-        println!("⏸️  Device in standby mode (power: {}%)", context.power_level);
+        println!(
+            "⏸️  Device in standby mode (power: {}%)",
+            context.power_level
+        );
         Response::Handled
     }
 
@@ -169,7 +172,10 @@ impl Stateful<DeviceState, DeviceContext, DeviceEvent> for ActiveState {
             }
             _ => {
                 context.increment_uptime();
-                println!("🔄 Processing in active state (uptime: {}s)", context.uptime_seconds);
+                println!(
+                    "🔄 Processing in active state (uptime: {}s)",
+                    context.uptime_seconds
+                );
                 Response::Handled
             }
         }
@@ -197,11 +203,10 @@ impl Stateful<DeviceState, DeviceContext, DeviceEvent> for ErrorState {
     async fn on_enter(&mut self, context: &mut DeviceContext) -> Response<DeviceState> {
         context.error_count += 1;
         context.power_level = 10; // Minimal power in error state
-        
+
         println!(
-            "🚨 Device in error state (errors: {}, power: {}%)", 
-            context.error_count, 
-            context.power_level
+            "🚨 Device in error state (errors: {}, power: {}%)",
+            context.error_count, context.power_level
         );
 
         if context.error_count >= 5 {
@@ -269,7 +274,7 @@ async fn simulate_device_operation() -> Result<(), Box<dyn std::error::Error>> {
     println!("🎯 Starting device simulation...\n");
 
     let mut device = create_device();
-    
+
     // Initialize device
     device.init(DeviceState::Off).await?;
     println!("Current state: {:?}\n", device.current_state());
@@ -291,7 +296,7 @@ async fn simulate_device_operation() -> Result<(), Box<dyn std::error::Error>> {
 
     for (event, description) in events {
         println!("📋 {}", description);
-        
+
         match device.process_event(&event).await {
             Ok(()) => {
                 println!("✅ Event processed successfully");
@@ -299,7 +304,7 @@ async fn simulate_device_operation() -> Result<(), Box<dyn std::error::Error>> {
                 println!("🔋 Power: {}%", device.context().power_level);
                 println!("❌ Errors: {}", device.context().error_count);
                 println!("⏱️  Uptime: {}s", device.context().uptime_seconds);
-                
+
                 if let Some(timeout) = device.get_current_timeout().await {
                     println!("⏰ Timeout: {:?}", timeout);
                 }
@@ -309,9 +314,9 @@ async fn simulate_device_operation() -> Result<(), Box<dyn std::error::Error>> {
                 println!("📊 Staying in state: {:?}", device.current_state());
             }
         }
-        
+
         println!(); // Empty line for readability
-        
+
         // Small delay to make the simulation more realistic
         tokio::time::sleep(Duration::from_millis(500)).await;
     }
@@ -319,7 +324,7 @@ async fn simulate_device_operation() -> Result<(), Box<dyn std::error::Error>> {
     // Demonstrate timeout handling
     println!("🕐 Demonstrating timeout behavior...");
     device.init(DeviceState::Standby).await?;
-    
+
     if let Some(timeout) = device.get_current_timeout().await {
         println!("⏰ Current timeout: {:?}", timeout);
     }
@@ -329,7 +334,6 @@ async fn simulate_device_operation() -> Result<(), Box<dyn std::error::Error>> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    
     match simulate_device_operation().await {
         Ok(()) => println!("Device simulation completed successfully!"),
         Err(e) => println!("Error during device simulation: {:?}", e),

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Raw Robot"]
 license = "MIT OR Apache-2.0"
-description = "A powerful async hierarchical finite state machine with timeout support and PlantUML export"
+description = "A powerful async hierarchical finite state machine with timeout support"
 homepage = "https://github.com/rawrobot/async-hierarchical-fsm"
 repository = "https://github.com/rawrobot/async-hierarchical-fsm"
 #documentation = "https://docs.rs/async-hierarchical-fsm"
@@ -33,11 +33,11 @@ tokio-integration = ["tokio"]
 
 [[example]]
 name = "basic_device"
-required-features = [ "tokio-integration"]
+required-features = ["tokio-integration"]
 
 [[example]]
 name = "hierarchical_ui"
-required-features = [ "tokio-integration"]
+required-features = ["tokio-integration"]
 
 [package.metadata.docs.rs]
 all-features = true
